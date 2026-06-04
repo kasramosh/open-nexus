@@ -1,0 +1,16 @@
+# env variables
+.env
+# virtual environment
+.venv/
+# ChromaDB local storage (regenerable from docs)
+chroma_db/
+__pycache__/
+*.pyc
+*.pyo
+dist/
+build/
+*.egg-info/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
