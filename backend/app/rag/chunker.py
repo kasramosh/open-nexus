@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from typing import Any
@@ -11,7 +11,8 @@ class ChunkingConfig:
     """Configuration for chunking text documents."""
     chunk_size: int = CHUNK_SIZE
     chunk_overlap: int = CHUNK_OVERLAP
-    separator: tuple[str, ...] = ("\n\n", "\n", ". ", " ", "")
+    separators: list[str] = field(
+    default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
     encoding_name: str = "cl100k_base"
     def __post_init__(self):
         if self.chunk_size <= 0:
@@ -22,7 +23,7 @@ class ChunkingConfig:
             raise ValueError("chunk_overlap must be less than chunk_size.")
 
 
-def build_token_splitter(config: ChunkingConfig) -> RecursiveCharacterTextSplitter:
+def build_token_splitter(config: ChunkingConfig | None = None) -> RecursiveCharacterTextSplitter:
     """Builds a RecursiveCharacterTextSplitter based on the provided configuration."""
 
     cfg = config or ChunkingConfig()
@@ -30,10 +31,10 @@ def build_token_splitter(config: ChunkingConfig) -> RecursiveCharacterTextSplitt
         encoding_name=cfg.encoding_name,
         chunk_size=cfg.chunk_size,
         chunk_overlap=cfg.chunk_overlap,
-        separators=cfg.separator,
+        separators=cfg.separators,
     )
 
-def chunk_text_to_documents(text: str, config: ChunkingConfig , source: str = "", 
+def chunk_text_to_documents(text: str, config: ChunkingConfig | None = None, source: str = "", 
                             base_metadata: dict[str, Any] | None = None) -> list[Document]:
     """Chunks the input text into a list of Document objects with metadata."""
     if not text or not text.strip():
