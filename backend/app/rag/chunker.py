@@ -6,7 +6,7 @@ from typing import Any
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 128
 
-@dataclass (frozen=True)
+@dataclass(frozen=True)
 class ChunkingConfig:
     """Configuration for chunking text documents."""
     chunk_size: int = CHUNK_SIZE
