@@ -1,10 +1,12 @@
+import io
+import pypdf
 from dataclasses import dataclass, field
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from typing import Any
 
-CHUNK_SIZE = 512
-CHUNK_OVERLAP = 128
+CHUNK_SIZE = 256
+CHUNK_OVERLAP = 32
 
 @dataclass(frozen=True)
 class ChunkingConfig:
@@ -48,9 +50,29 @@ def chunk_text_to_documents(text: str, config: ChunkingConfig | None = None, sou
     documents = []
 
     for i, chunk in enumerate(chunks):
-        metadata = dict(metadata_seed)
-        metadata["source"] = source
-        metadata["chunk_index"] = i
+        metadata = {**metadata_seed, "source": source, "chunk_index": i}
         documents.append(Document(page_content=chunk, metadata=metadata))
+
+    return documents
+
+def chunk_pdf_to_documents(pdf_bytes: bytes, config: ChunkingConfig | None = None, source: str = "",
+                            base_metadata: dict[str, Any] | None = None) -> list[Document]:
+    """Extracts text from PDF bytes and chunks it into Documents with page_number metadata."""
+    if not pdf_bytes:
+        return []
+
+    cfg = config or ChunkingConfig()
+    splitter = build_token_splitter(cfg)
+    metadata_seed = dict(base_metadata) if base_metadata else {}
+
+    reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+    documents = []
+    chunk_index = 0
+
+    for page_number, page in enumerate(reader.pages, start=1):
+        for chunk in splitter.split_text(page.extract_text() or ""):
+            metadata = {**metadata_seed, "source": source, "page_number": page_number, "chunk_index": chunk_index}
+            documents.append(Document(page_content=chunk, metadata=metadata))
+            chunk_index += 1
 
     return documents
