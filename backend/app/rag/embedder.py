@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
-from langchain_core import Document
+from langchain_core.documents import Document
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
