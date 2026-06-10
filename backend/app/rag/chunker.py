@@ -1,21 +1,26 @@
 import io
-import pypdf
 from dataclasses import dataclass, field
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
 from typing import Any
 
-CHUNK_SIZE = 256
-CHUNK_OVERLAP = 32
+import pypdf
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 100
+
 
 @dataclass(frozen=True)
 class ChunkingConfig:
     """Configuration for chunking text documents."""
+
     chunk_size: int = CHUNK_SIZE
     chunk_overlap: int = CHUNK_OVERLAP
     separators: list[str] = field(
-    default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
+        default_factory=lambda: ["\n\n", "\n", ". ", " ", ""]
+    )
     encoding_name: str = "cl100k_base"
+
     def __post_init__(self):
         if self.chunk_size <= 0:
             raise ValueError("chunk_size must be a positive integer.")
@@ -26,8 +31,7 @@ class ChunkingConfig:
 
 
 def build_token_splitter(config: ChunkingConfig | None = None) -> RecursiveCharacterTextSplitter:
-    """Builds a RecursiveCharacterTextSplitter based on the provided configuration."""
-
+    """Build a token-aware RecursiveCharacterTextSplitter."""
     cfg = config or ChunkingConfig()
     return RecursiveCharacterTextSplitter.from_tiktoken_encoder(
         encoding_name=cfg.encoding_name,
@@ -36,12 +40,33 @@ def build_token_splitter(config: ChunkingConfig | None = None) -> RecursiveChara
         separators=cfg.separators,
     )
 
-def chunk_text_to_documents(text: str, config: ChunkingConfig | None = None, source: str = "", 
-                            base_metadata: dict[str, Any] | None = None) -> list[Document]:
-    """Chunks the input text into a list of Document objects with metadata."""
+
+def _build_metadata(
+    metadata_seed: dict[str, Any],
+    source: str,
+    chunk_index: int,
+    page_number: int | None = None,
+) -> dict[str, Any]:
+    metadata = {
+        **metadata_seed,
+        "source": source,
+        "chunk_index": chunk_index,
+    }
+    if page_number is not None:
+        metadata["page_number"] = page_number
+    return metadata
+
+
+def chunk_text_to_documents(
+    text: str,
+    config: ChunkingConfig | None = None,
+    source: str = "",
+    base_metadata: dict[str, Any] | None = None,
+) -> list[Document]:
+    """Chunk text into Document objects with source and chunk metadata."""
     if not text or not text.strip():
         return []
-    
+
     cfg = config or ChunkingConfig()
     splitter = build_token_splitter(cfg)
     chunks = splitter.split_text(text)
@@ -50,14 +75,19 @@ def chunk_text_to_documents(text: str, config: ChunkingConfig | None = None, sou
     documents = []
 
     for i, chunk in enumerate(chunks):
-        metadata = {**metadata_seed, "source": source, "chunk_index": i}
+        metadata = _build_metadata(metadata_seed, source=source, chunk_index=i)
         documents.append(Document(page_content=chunk, metadata=metadata))
 
     return documents
 
-def chunk_pdf_to_documents(pdf_bytes: bytes, config: ChunkingConfig | None = None, source: str = "",
-                            base_metadata: dict[str, Any] | None = None) -> list[Document]:
-    """Extracts text from PDF bytes and chunks it into Documents with page_number metadata."""
+
+def chunk_pdf_to_documents(
+    pdf_bytes: bytes,
+    config: ChunkingConfig | None = None,
+    source: str = "",
+    base_metadata: dict[str, Any] | None = None,
+) -> list[Document]:
+    """Extract text from PDF bytes and chunk it into Documents with page metadata."""
     if not pdf_bytes:
         return []
 
@@ -71,7 +101,12 @@ def chunk_pdf_to_documents(pdf_bytes: bytes, config: ChunkingConfig | None = Non
 
     for page_number, page in enumerate(reader.pages, start=1):
         for chunk in splitter.split_text(page.extract_text() or ""):
-            metadata = {**metadata_seed, "source": source, "page_number": page_number, "chunk_index": chunk_index}
+            metadata = _build_metadata(
+                metadata_seed,
+                source=source,
+                chunk_index=chunk_index,
+                page_number=page_number,
+            )
             documents.append(Document(page_content=chunk, metadata=metadata))
             chunk_index += 1
 
