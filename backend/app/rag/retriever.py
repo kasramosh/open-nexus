@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-import chromadb
 from langchain_core.documents import Document
 from app.rag.embedder import CHROMA_PERSIST_DIR, EmbeddingConfig, get_vector_store
+from app.rag.store import collection_exists
 
 DEFAULT_RETRIEVAL_K = 5
 
@@ -15,16 +15,6 @@ class RetrieverConfig:
     def __post_init__(self):
         if self.top_k <= 0:
             raise ValueError("top_k must be a positive integer.")
-
-
-def collection_exists(
-    collection_name: str,
-    persist_directory: str = CHROMA_PERSIST_DIR,
-) -> bool:
-    client = chromadb.PersistentClient(path=persist_directory)
-    collections = client.list_collections()
-
-    return any(collection.name == collection_name for collection in collections)
 
 
 def retrieve_relevant_chunks(

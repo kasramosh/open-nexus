@@ -24,7 +24,7 @@ class EmbeddingConfig:
 def build_embedder(embed_config: EmbeddingConfig | None = None) -> OpenAIEmbeddings:
     """Build the OpenAI embedding client used by Chroma."""
     emcfg = embed_config or EmbeddingConfig()
-    return OpenAIEmbeddings(model=emcfg.model, dimension=emcfg.dimension)
+    return OpenAIEmbeddings(model=emcfg.model, dimensions=emcfg.dimension)
 
 
 def get_vector_store(

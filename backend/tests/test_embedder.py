@@ -27,7 +27,7 @@ def test_build_embedder_uses_configured_model_and_dimension(mock_openai_embeddin
 
     mock_openai_embeddings_cls.assert_called_once_with(
         model="text-embedding-3-small",
-        dimension=EMBEDDING_DIMENSION,
+        dimensions=EMBEDDING_DIMENSION,
     )
     assert result is mock_embedder
 
