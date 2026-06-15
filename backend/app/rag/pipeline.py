@@ -136,6 +136,12 @@ class RAGPipeline:
             persist_directory=self.config.persist_directory,
         )
 
+    def create_collection(self) -> None:
+        store.create_collection(
+            self.config.collection_name,
+            persist_directory=self.config.persist_directory,
+        )
+
     def delete_collection(self) -> None:
         store.delete_collection(
             self.config.collection_name,
