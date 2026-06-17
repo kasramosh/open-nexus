@@ -2,13 +2,25 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+COLLECTION_NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{1,78}[A-Za-z0-9]$"
+COLLECTION_NAME_DESCRIPTION = (
+    "3-80 characters; use letters, numbers, underscores, and hyphens; "
+    "start and end with a letter or number."
+)
+
 
 class APIModel(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
 
 class CreateCollectionRequest(APIModel):
-    name: str = Field(..., min_length=1, max_length=80)
+    name: str = Field(
+        ...,
+        min_length=3,
+        max_length=80,
+        pattern=COLLECTION_NAME_PATTERN,
+        description=COLLECTION_NAME_DESCRIPTION,
+    )
 
 
 class CollectionOut(APIModel):
@@ -21,6 +33,7 @@ class CollectionListOut(APIModel):
 
 class DocumentOut(APIModel):
     source: str
+
 
 class DocumentListOut(APIModel):
     documents: list[DocumentOut]

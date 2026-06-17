@@ -1,6 +1,12 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Path, status
 
-from app.models import CreateCollectionRequest, CollectionListOut, CollectionOut
+from app.models import (
+    COLLECTION_NAME_DESCRIPTION,
+    COLLECTION_NAME_PATTERN,
+    CollectionListOut,
+    CollectionOut,
+    CreateCollectionRequest,
+)
 from app.rag.pipeline import PipelineConfig, RAGPipeline
 
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -10,7 +16,10 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 def create_collection(request: CreateCollectionRequest):
     pipeline = RAGPipeline(PipelineConfig(collection_name=request.name))
     if pipeline.collection_exists():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Collection '{request.name}' already exists.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Collection '{request.name}' already exists.",
+        )
     pipeline.create_collection()
     return CollectionOut(name=request.name)
 
@@ -23,8 +32,19 @@ def list_collections():
 
 
 @router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_collection(collection_id: str):
+def delete_collection(
+    collection_id: str = Path(
+        ...,
+        min_length=3,
+        max_length=80,
+        pattern=COLLECTION_NAME_PATTERN,
+        description=COLLECTION_NAME_DESCRIPTION,
+    ),
+):
     pipeline = RAGPipeline(PipelineConfig(collection_name=collection_id))
     if not pipeline.collection_exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Collection '{collection_id}' not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Collection '{collection_id}' not found.",
+        )
     pipeline.delete_collection()
