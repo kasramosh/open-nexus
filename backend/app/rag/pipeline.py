@@ -153,6 +153,19 @@ class RAGPipeline:
             persist_directory=self.config.persist_directory,
         )
 
+    def list_documents(self) -> list[str]:
+        return store.list_collection_sources(
+            self.config.collection_name,
+            persist_directory=self.config.persist_directory,
+        )
+
+    def delete_document(self, source: str) -> None:
+        store.delete_document(
+            self.config.collection_name,
+            source=source,
+            persist_directory=self.config.persist_directory,
+        )
+
     # ── Utilities ────────────────────────────────────────────────────────────
 
     def get_vector_store(self):
