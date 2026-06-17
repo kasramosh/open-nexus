@@ -38,5 +38,15 @@ def list_collection_sources(
     client = chromadb.PersistentClient(path=persist_directory)
     collection = client.get_collection(name=collection_name)
     result = collection.get(include=["metadatas"])
-    sources = {m.get("source","") for m in result["metadatas"] if m}
-    return sorted(sources-{""})
+    sources = {m.get("source", "") for m in result["metadatas"] if m}
+    return sorted(sources - {""})
+
+
+def delete_document(
+    collection_name: str,
+    source: str,
+    persist_directory: str = CHROMA_PERSIST_DIR,
+) -> None:
+    client = chromadb.PersistentClient(path=persist_directory)
+    collection = client.get_collection(name=collection_name)
+    collection.delete(where={"source": source})
