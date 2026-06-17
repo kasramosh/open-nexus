@@ -44,17 +44,25 @@ async def upload_document(collection_id: CollectionId, file: UploadFile = File(.
     filename = file.filename or "upload"
 
     is_pdf = file.content_type == "application/pdf" or filename.lower().endswith(".pdf")
-    if is_pdf:
-        pipeline.ingest_pdf(content, source=filename)
-    else:
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="File must be a PDF or UTF-8 encoded text.",
-            )
-        pipeline.ingest_text(text, source=filename)
+    try:
+        if is_pdf:
+            pipeline.ingest_pdf(content, source=filename)
+        else:
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="File must be a PDF or UTF-8 encoded text.",
+                )
+            pipeline.ingest_text(text, source=filename)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Could not process file: {exc}",
+        )
 
     return DocumentOut(source=filename)
 
