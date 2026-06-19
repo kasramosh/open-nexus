@@ -1,9 +1,80 @@
-function App() {
+import { useEffect, useState } from "react";
+import {
+  createCollection,
+  deleteCollection,
+  getCollections,
+  getDocuments,
+} from "./api/client";
+import type { Collection, DocumentItem } from "./api/client";
+import CollectionList from "./components/CollectionList";
+import DocumentUpload from "./components/DocumentUpload";
+import ChatInterface from "./components/ChatInterface";
+
+export default function App() {
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+
+  // Load collections once on mount
+  useEffect(() => {
+    getCollections().then(setCollections).catch(console.error);
+  }, []);
+
+  // Load documents whenever the selected collection changes
+  useEffect(() => {
+    if (!selected) {
+      setDocuments([]);
+      return;
+    }
+    getDocuments(selected).then(setDocuments).catch(console.error);
+  }, [selected]);
+
+  async function handleCreate(name: string) {
+    await createCollection(name);
+    const updated = await getCollections();
+    setCollections(updated);
+    setSelected(name);
+  }
+
+  async function handleDelete(name: string) {
+    await deleteCollection(name);
+    const updated = await getCollections();
+    setCollections(updated);
+    if (selected === name) {
+      setSelected(updated[0]?.name ?? null);
+    }
+  }
+
+  function refreshDocuments() {
+    if (selected) getDocuments(selected).then(setDocuments).catch(console.error);
+  }
+
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100">
-      <p>Nexus is loading...</p>
-    </div>
-  )
-}
+      <CollectionList
+        collections={collections}
+        selected={selected}
+        onSelect={setSelected}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+      />
 
-export default App
+      {selected ? (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <DocumentUpload
+            collection={selected}
+            documents={documents}
+            onRefresh={refreshDocuments}
+          />
+          {/* key={selected} makes React fully remount ChatInterface when collection
+              changes, which clears the message history automatically */}
+          <ChatInterface key={selected} collection={selected} />
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+          Select or create a collection to get started.
+        </div>
+      )}
+    </div>
+  );
+}
