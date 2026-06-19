@@ -13,6 +13,7 @@ chromadb==1.5.9
 click==8.4.1
 distro==1.9.0
 durationpy==0.10
+fastapi==0.115.12
 filelock==3.29.1
 flatbuffers==25.12.19
 frozenlist==1.8.0
