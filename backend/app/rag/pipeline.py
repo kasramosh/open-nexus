@@ -128,6 +128,19 @@ class RAGPipeline:
             config=generator_config or self.config.generator_config,
         )
 
+    def stream_tokens(
+        self,
+        query: str,
+        chunks: list[Document],
+        generator_config: generator.GeneratorConfig | None = None,
+    ):
+        """Stream a cited answer token by token for already-retrieved chunks."""
+        return generator.stream_answer(
+            query=query,
+            chunks=chunks,
+            config=generator_config or self.config.generator_config,
+        )
+
     # ── Collection management ────────────────────────────────────────────────
 
     def collection_exists(self) -> bool:
@@ -174,3 +187,44 @@ class RAGPipeline:
             embed_config=self.config.embedding_config,
             persist_directory=self.config.persist_directory,
         )
+
+
+def _demo() -> None:
+    """Minimal end-to-end demo: ingest a file and answer a question.
+
+    Run from the backend/ directory (requires OPENAI_API_KEY in the environment):
+        python -m app.rag.pipeline <path-to-pdf-or-txt> "your question"
+    """
+    import argparse
+    import pathlib
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(description="Nexus RAG pipeline demo.")
+    parser.add_argument("document", help="Path to a .pdf or .txt file to ingest.")
+    parser.add_argument("question", help="Question to ask about the document.")
+    parser.add_argument("--collection", default="demo", help="Collection name to use.")
+    args = parser.parse_args()
+
+    path = pathlib.Path(args.document)
+    pipeline = RAGPipeline(PipelineConfig(collection_name=args.collection))
+    if not pipeline.collection_exists():
+        pipeline.create_collection()
+
+    if path.suffix.lower() == ".pdf":
+        pipeline.ingest_pdf(path.read_bytes(), source=path.name)
+    else:
+        pipeline.ingest_text(path.read_text(encoding="utf-8"), source=path.name)
+
+    result = pipeline.generate(args.question)
+    print("\nAnswer:\n" + result.answer)
+    print("\nSources:")
+    for source in result.sources:
+        page = f", page {source['page_number']}" if source.get("page_number") else ""
+        print(f"  - {source['source']}{page}")
+
+
+if __name__ == "__main__":
+    _demo()
