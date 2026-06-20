@@ -12,6 +12,8 @@ from app.rag.pipeline import PipelineConfig, RAGPipeline
 
 router = APIRouter(prefix="/collections", tags=["documents"])
 
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
 CollectionId = Annotated[
     str,
     Path(
@@ -42,6 +44,17 @@ async def upload_document(collection_id: CollectionId, file: UploadFile = File(.
     pipeline = _require_collection(collection_id)
     content = await file.read()
     filename = file.filename or "upload"
+
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+        )
+
+    # Re-uploading the same filename replaces the previous version so stale
+    # chunks from an earlier (possibly longer) document don't linger.
+    if filename in pipeline.list_documents():
+        pipeline.delete_document(filename)
 
     is_pdf = file.content_type == "application/pdf" or filename.lower().endswith(".pdf")
     try:
