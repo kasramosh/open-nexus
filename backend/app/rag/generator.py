@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -44,6 +45,19 @@ def _build_prompt(query: str, chunks: list[Document]) -> str:
     )
 
 
+def build_sources(chunks: list[Document]) -> list[dict]:
+    """Project retrieved chunks into the JSON-serializable source shape."""
+    return [
+        {
+            "source": doc.metadata.get("source", ""),
+            "page_number": doc.metadata.get("page_number"),
+            "chunk_index": doc.metadata.get("chunk_index"),
+            "content": doc.page_content,
+        }
+        for doc in chunks
+    ]
+
+
 def generate_answer(
     query: str,
     chunks: list[Document],
@@ -60,14 +74,25 @@ def generate_answer(
     prompt = _build_prompt(query, chunks)
     response = llm.invoke(prompt)
 
-    sources = [
-        {
-            "source": doc.metadata.get("source", ""),
-            "page_number": doc.metadata.get("page_number"),
-            "chunk_index": doc.metadata.get("chunk_index"),
-            "content": doc.page_content,
-        }
-        for doc in chunks
-    ]
+    return GenerationResult(answer=response.content, sources=build_sources(chunks))
 
-    return GenerationResult(answer=response.content, sources=sources)
+
+def stream_answer(
+    query: str,
+    chunks: list[Document],
+    config: GeneratorConfig | None = None,
+) -> Iterator[str]:
+    """Stream the generated answer token by token."""
+    if not query or not query.strip():
+        raise ValueError("query must be a non-empty string.")
+    if not chunks:
+        raise ValueError("chunks must not be empty.")
+
+    cfg = config or GeneratorConfig()
+    llm = ChatOpenAI(model=cfg.model, temperature=cfg.temperature, max_tokens=cfg.max_tokens)
+
+    prompt = _build_prompt(query, chunks)
+    for piece in llm.stream(prompt):
+        text = piece.content
+        if isinstance(text, str) and text:
+            yield text

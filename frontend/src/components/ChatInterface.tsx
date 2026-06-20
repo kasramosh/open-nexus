@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { queryCollection } from "../api/client";
+import { queryCollectionStream } from "../api/client";
 import type { SourceChunk } from "../api/client";
 
 interface Message {
@@ -31,12 +31,30 @@ export default function ChatInterface({ collection }: Props) {
     setInput("");
     setLoading(true);
 
+    // Helper to update the in-flight assistant message (always the last one).
+    const updateAssistant = (patch: (m: Message) => Message) =>
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = patch(next[next.length - 1]);
+        return next;
+      });
+
     try {
-      const result = await queryCollection(collection, query);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: result.answer, sources: result.sources },
-      ]);
+      let started = false;
+      await queryCollectionStream(collection, query, {
+        onSources: (sources) => {
+          setMessages((prev) => [...prev, { role: "assistant", content: "", sources }]);
+          started = true;
+        },
+        onToken: (token) => {
+          if (!started) {
+            setMessages((prev) => [...prev, { role: "assistant", content: token }]);
+            started = true;
+          } else {
+            updateAssistant((m) => ({ ...m, content: m.content + token }));
+          }
+        },
+      });
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -91,7 +109,7 @@ export default function ChatInterface({ collection }: Props) {
           </div>
         ))}
 
-        {loading && (
+        {loading && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex justify-start">
             <div className="bg-gray-800 rounded-lg px-4 py-2 text-sm text-gray-400">
               Thinking…
