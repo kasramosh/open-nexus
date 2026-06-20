@@ -14,6 +14,24 @@ router = APIRouter(prefix="/collections", tags=["documents"])
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 
+
+def _decode_text(content: bytes) -> str:
+    """Decode an uploaded text file, tolerating common Windows encodings.
+
+    Windows editors save plain text as UTF-8 (often with a BOM), legacy
+    ANSI/Windows-1252, or UTF-16 — so a strict utf-8 decode rejects perfectly
+    valid files. Try the likely encodings in order; ``utf-8-sig`` also strips a
+    leading BOM. Raises UnicodeDecodeError if none apply (e.g. binary data).
+    """
+    if content.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return content.decode("utf-16")
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeDecodeError("utf-8", content, 0, 1, "unsupported text encoding")
+
 CollectionId = Annotated[
     str,
     Path(
@@ -62,11 +80,16 @@ async def upload_document(collection_id: CollectionId, file: UploadFile = File(.
             pipeline.ingest_pdf(content, source=filename)
         else:
             try:
-                text = content.decode("utf-8")
+                text = _decode_text(content)
             except UnicodeDecodeError:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="File must be a PDF or UTF-8 encoded text.",
+                    detail="File must be a PDF or a text file (UTF-8, UTF-16, or Windows-1252).",
+                )
+            if not text.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="The uploaded text file is empty.",
                 )
             pipeline.ingest_text(text, source=filename)
     except HTTPException:
