@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.documents import Document
 
 from app.main import app
 from app.rag.generator import GenerationResult
@@ -169,6 +170,54 @@ def test_query_empty_collection_returns_422(mock_cls):
 
     response = client.post(
         "/collections/my-docs/query",
+        json={"query": "what is nexus?", "top_k": 5},
+    )
+    assert response.status_code == 422
+
+
+# ── Query (streaming) ──────────────────────────────────────────────────────────
+
+@patch("app.routes.query.RAGPipeline")
+def test_query_stream_emits_sources_then_tokens(mock_cls):
+    pipeline = _mock_pipeline(exists=True)
+    pipeline.retrieve.return_value = [
+        Document(page_content="Nexus is a RAG platform.", metadata={"source": "a.txt", "chunk_index": 0}),
+    ]
+    pipeline.stream_tokens.return_value = iter(["Nexus ", "is ", "RAG."])
+    mock_cls.return_value = pipeline
+
+    response = client.post(
+        "/collections/my-docs/query/stream",
+        json={"query": "what is nexus?", "top_k": 5},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+
+    body = response.text
+    assert '"type": "sources"' in body
+    assert '"type": "token"' in body
+    assert "Nexus " in body
+    assert '"type": "done"' in body
+
+
+@patch("app.routes.query.RAGPipeline")
+def test_query_stream_missing_collection_returns_404(mock_cls):
+    mock_cls.return_value = _mock_pipeline(exists=False)
+    response = client.post(
+        "/collections/my-docs/query/stream",
+        json={"query": "what is nexus?", "top_k": 5},
+    )
+    assert response.status_code == 404
+
+
+@patch("app.routes.query.RAGPipeline")
+def test_query_stream_empty_collection_returns_422(mock_cls):
+    pipeline = _mock_pipeline(exists=True)
+    pipeline.retrieve.return_value = []
+    mock_cls.return_value = pipeline
+
+    response = client.post(
+        "/collections/my-docs/query/stream",
         json={"query": "what is nexus?", "top_k": 5},
     )
     assert response.status_code == 422

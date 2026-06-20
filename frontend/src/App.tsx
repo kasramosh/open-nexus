@@ -20,13 +20,19 @@ export default function App() {
     getCollections().then(setCollections).catch(console.error);
   }, []);
 
-  // Load documents whenever the selected collection changes
+  // Load documents whenever the selected collection changes. The cleanup flag
+  // guards against a stale response from a previous collection landing late.
   useEffect(() => {
-    if (!selected) {
-      setDocuments([]);
-      return;
-    }
-    getDocuments(selected).then(setDocuments).catch(console.error);
+    if (!selected) return;
+    let active = true;
+    getDocuments(selected)
+      .then((docs) => {
+        if (active) setDocuments(docs);
+      })
+      .catch(console.error);
+    return () => {
+      active = false;
+    };
   }, [selected]);
 
   async function handleCreate(name: string) {
@@ -41,7 +47,9 @@ export default function App() {
     const updated = await getCollections();
     setCollections(updated);
     if (selected === name) {
-      setSelected(updated[0]?.name ?? null);
+      const next = updated[0]?.name ?? null;
+      setSelected(next);
+      if (!next) setDocuments([]);
     }
   }
 
