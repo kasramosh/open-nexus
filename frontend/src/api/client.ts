@@ -1,4 +1,6 @@
-const BASE = "http://localhost:8000";
+// Configurable per environment via Vite env vars (set VITE_API_BASE_URL in a
+// .env file or your deploy config). Falls back to the local dev server.
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export interface Collection {
   name: string;

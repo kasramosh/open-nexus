@@ -1,5 +1,7 @@
+import os
 from dataclasses import dataclass
 
+import chromadb
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
@@ -7,6 +9,14 @@ from langchain_openai import OpenAIEmbeddings
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
 CHROMA_PERSIST_DIR = "./chroma_db"
+
+
+def get_chroma_client(persist_directory: str = CHROMA_PERSIST_DIR) -> chromadb.ClientAPI:
+    host = os.getenv("CHROMA_HOST")
+    if host:
+        port = int(os.getenv("CHROMA_PORT", "8000"))
+        return chromadb.HttpClient(host=host, port=port)
+    return chromadb.PersistentClient(path=persist_directory)
 
 
 @dataclass(frozen=True)
@@ -35,7 +45,7 @@ def get_vector_store(
     """Open a Chroma collection with the configured embedding function."""
     return Chroma(
         collection_name=collection_name,
-        persist_directory=persist_directory,
+        client=get_chroma_client(persist_directory),
         embedding_function=build_embedder(embed_config),
     )
 
