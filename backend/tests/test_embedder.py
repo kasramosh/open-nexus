@@ -33,10 +33,13 @@ def test_build_embedder_uses_configured_model_and_dimension(mock_openai_embeddin
 
 
 @patch("app.rag.embedder.build_embedder")
+@patch("app.rag.embedder.get_chroma_client")
 @patch("app.rag.embedder.Chroma")
-def test_get_vector_store_builds_chroma_collection(mock_chroma_cls, mock_build_embedder):
+def test_get_vector_store_builds_chroma_collection(mock_chroma_cls, mock_get_client, mock_build_embedder):
     mock_embedder = MagicMock(name="OpenAIEmbeddingsInstance")
     mock_build_embedder.return_value = mock_embedder
+    mock_client = MagicMock(name="ChromaClientInstance")
+    mock_get_client.return_value = mock_client
     mock_vector_store = MagicMock(name="ChromaInstance")
     mock_chroma_cls.return_value = mock_vector_store
 
@@ -44,7 +47,7 @@ def test_get_vector_store_builds_chroma_collection(mock_chroma_cls, mock_build_e
 
     mock_chroma_cls.assert_called_once_with(
         collection_name="test_collection",
-        persist_directory=CHROMA_PERSIST_DIR,
+        client=mock_client,
         embedding_function=mock_embedder,
     )
     assert result is mock_vector_store

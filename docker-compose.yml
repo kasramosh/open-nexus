@@ -1,0 +1,26 @@
+services:
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"      # your browser hits localhost:80
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    env_file: .env   # loads OPENAI_API_KEY from the root .env file
+    environment:
+      - CHROMA_HOST=chromadb   # tells get_chroma_client() to use HttpClient
+      - CHROMA_PORT=8000
+      - ALLOWED_ORIGINS=http://localhost
+    depends_on:
+      - chromadb
+
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma   # persist vector data across restarts
+
+volumes:
+  chroma_data:   # named volume managed by Docker, survives `docker compose down`
